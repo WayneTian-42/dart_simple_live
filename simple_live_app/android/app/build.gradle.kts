@@ -50,32 +50,40 @@ android {
     }
 
     signingConfigs {
-        // ✅ 永远保证 debug signingConfig 可用（无需你提供任何东西）
-        // Flutter/AGP 通常默认就有 debug，但显式写一下更稳
+        // 保证 debug 存在（AGP 通常默认有，但显式获取更稳）
         getByName("debug")
-
-        // ✅ release signing：只有当 key.properties 完整时才真正配置
-        create("release") if (hasCompleteReleaseKeystore(keystoreProperties)) {
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-            keyPassword = keystoreProperties.getProperty("keyPassword")
-            storeFile = file(keystoreProperties.getProperty("storeFile"))
-            storePassword = keystoreProperties.getProperty("storePassword")
-            isV1SigningEnabled = true
-            isV2SigningEnabled = true
+    
+        create("release") {
+            // 只有当 key.properties 四个字段齐全时，才配置 release keystore
+            val keyAliasVal = keystoreProperties.getProperty("keyAlias")
+            val keyPasswordVal = keystoreProperties.getProperty("keyPassword")
+            val storeFileVal = keystoreProperties.getProperty("storeFile")
+            val storePasswordVal = keystoreProperties.getProperty("storePassword")
+    
+            val hasAll = !keyAliasVal.isNullOrBlank()
+                    && !keyPasswordVal.isNullOrBlank()
+                    && !storeFileVal.isNullOrBlank()
+                    && !storePasswordVal.isNullOrBlank()
+    
+            if (hasAll) {
+                keyAlias = keyAliasVal
+                keyPassword = keyPasswordVal
+                storeFile = file(storeFileVal!!)
+                storePassword = storePasswordVal
+                isV1SigningEnabled = true
+                isV2SigningEnabled = true
+            }
+            // 如果没有 hasAll：什么都不设置，后面 release 会 fallback 到 debug signing
         }
     }
 
     buildTypes {
         release {
-            // ✅ 你要的是：release 构建能跑，不上架也不想配 keystore
-            // - 有 key.properties 且完整：用 release keystore
-            // - 否则：自动回退到 debug keystore（Action 环境就不会炸）
-            signingConfig = if (hasCompleteReleaseKeystore(keystoreProperties)) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
-
+            // ✅ release 构建仍然是 release（minify/shrink/proguard都照常）
+            // 仅签名：有完整 release keystore -> 用 release；否则 -> 用 debug
+            val rel = signingConfigs.getByName("release")
+            signingConfig = if (rel.storeFile != null) rel else signingConfigs.getByName("debug")
+    
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

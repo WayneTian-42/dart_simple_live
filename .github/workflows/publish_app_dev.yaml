@@ -3,8 +3,7 @@ name: app-build-action-dev
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "v*"
+    branches: [origin]
 
 jobs:
   # 打包Android、iOS、Mac
